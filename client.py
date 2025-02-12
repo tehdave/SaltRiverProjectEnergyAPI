@@ -4,6 +4,7 @@ This module contains the main class used to interact with the Salt River Project
 Data API.
 """
 
+import datetime
 import requests
 from urllib.parse import unquote
 from saltriverprojectclient.objects.hourly_usage import HourlyUsage
@@ -111,8 +112,8 @@ class SaltRiverProjectClient:
         List[HourlyUsage]: A list of HourlyUsage objects containing per hour usage information.
         """
         # Convert datetime to strings
-        str_startdate = startDate.strftime("%m-%d-%Y")
-        str_enddate = endDate.strftime("%m-%d-%Y")
+        str_startdate = datetime.datetime.strptime(startDate, "%d-%m-%Y")
+        str_enddate = datetime.datetime.strptime(endDate, "%d-%m-%Y")
 
         response = self.apiSession.get(
             BASE_API_URL
