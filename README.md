@@ -7,11 +7,11 @@ This module provides a Python client for interacting with the Salt River Project
 Here is an example of how to use the Salt River Project Client:
 
 ```python
-from saltriverprojectclient.client import SaltRiverProjectClient
+from saltriverprojectenergyapi.client import SaltRiverProjectClient
 
 # Initialize the client with your Billing Account and login info
 client = SaltRiverProjectClient(
-    billingAccount=<Billing Account Number>,
+    billingAccount="Billing Account Number",
     username="SRP email_address or login name",
     password="SRP password"
 )
