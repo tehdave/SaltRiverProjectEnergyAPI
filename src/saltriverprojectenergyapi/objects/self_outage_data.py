@@ -4,7 +4,7 @@ class SelfOutageData:
         self.estimatedRestorationTime = estimatedRestorationTime
         self.reportedOutageTime = reportedOutageTime
         self.estimatedUsersImpacted = estimatedUsersImpacted
-        
+
     def __repr__(self):
         return (
             f"isInOutageArea={self.isInOutageArea},"

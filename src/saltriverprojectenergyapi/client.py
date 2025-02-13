@@ -6,10 +6,13 @@ Data API.
 
 import datetime
 import requests
-from urllib.parse import unquote
-from saltriverprojectenergyapi.objects.hourly_usage import HourlyUsage
-from saltriverprojectenergyapi.objects.weather_data import WeatherData
 from typing import List
+from urllib.parse import unquote
+from .objects import (
+    HourlyUsage,
+    WeatherData,
+    SelfOutageData,
+)
 from .const import (
     BASE_API_URL,
     API_LOGIN_URI,
@@ -40,15 +43,16 @@ class SaltRiverProjectClient:
     """
 
     def __init__(self, billingAccount, username, password):
-        """Initializes the SaltRiverProjectClient with the provided credentials.
-
-        Parameters:
-        billingAccount: string
-            The 9 digit SRP Billing Account.
-        username: string
-            The username used to login. Usually your email address.
-        password: string
-            The password used to login.
+        """
+        Initializes the client with the given billing account, username, and password.
+        Args:
+            billingAccount (str): A 9 digit string representing the billing account.
+            username (str): A non-empty string representing the username.
+            password (str): A non-empty string representing the password.
+        Raises:
+            ValueError: If billingAccount is not a 9 digit string.
+            ValueError: If username is not a non-empty string.
+            ValueError: If password is not a non-empty string.
         """
 
         if not isinstance(billingAccount, str) or len(billingAccount) != 9:
@@ -101,17 +105,17 @@ class SaltRiverProjectClient:
             return False
                 
     def getHourlyUsage(self, startDate, endDate) -> List[HourlyUsage]:
-        """Fetches hourly usage data for the specified date range.
-
-        Parameters:
-        startDate: datetime
-            The start date for the data retrieval.
-        endDate: datetime
-            The end date for the data retrieval.
-
-        Returns:
-        List[HourlyUsage]: A list of HourlyUsage objects containing per hour usage information.
         """
+        Retrieves hourly energy usage data for a given date range.
+        Args:
+            startDate (str): The start date in the format "dd-mm-yyyy".
+            endDate (str): The end date in the format "dd-mm-yyyy".
+        Returns:
+            List[HourlyUsage]: A list of HourlyUsage objects containing energy usage data for each hour within the specified date range.
+        Raises:
+            ValueError: If the date format is incorrect or if the API response is invalid.
+        """
+
         # Convert datetime to strings
         str_startdate = datetime.datetime.strptime(startDate, "%d-%m-%Y")
         str_enddate = datetime.datetime.strptime(endDate, "%d-%m-%Y")
@@ -144,11 +148,19 @@ class SaltRiverProjectClient:
         return energy_data_collection
 
     def getDailyWeather(self) -> List[WeatherData]:
-        """Fetches daily weather data.
-
-        Returns:
-        List[WeatherData]: A list of WeatherData objects containing daily weather information.
         """
+        Fetches daily weather data from the API.
+        This method sends a GET request to the weather data endpoint of the API
+        and retrieves the daily weather data. The data is then parsed and 
+        converted into a list of WeatherData objects.
+        Returns:
+            List[WeatherData]: A list of WeatherData objects containing the 
+            weather information for each day.
+        Raises:
+            Exception: If there is an error during the API request or data 
+            parsing, an exception is caught and its representation is printed.
+        """
+
         try:
             weatherRequest = self.apiSession.get(
                 BASE_API_URL
@@ -171,15 +183,31 @@ class SaltRiverProjectClient:
             print("Exception:", repr(e))
             return False
         
-    def getUserOutage(self):
+    def getUserOutage(self) -> SelfOutageData:
+        """
+        Fetches the user's outage information from the API.
+        This method sends a GET request to the API endpoint to retrieve the user's outage data.
+        It constructs the request URL using the base API URL and the user's billing account.
+        The response is expected to be in JSON format and contains information about the outage.
+        Returns:
+            SelfOutageData: An instance of SelfOutageData containing the outage information.
+        Raises:
+            Exception: If there is an error during the API request or response parsing, an exception is caught and printed.
+        """
         try:
-            selfOutageData = self.apiSession.get(
+            selfOutageRequest = self.apiSession.get(
                 BASE_API_URL
                 + API_USER_OUTAGE_URI.format(billingAccount=self.billingAccount),
                 headers = {"x-xsrf-token": self.xsrf_token} 
             )
-
-            apiResponse = selfOutageData.json()
-            print(apiResponse)
+            apiResponse = selfOutageRequest.json()
+            self_outage_data = SelfOutageData(
+                apiResponse['isInOutageArea'],
+                apiResponse['estimatedRestorationTime'],
+                apiResponse['reportedOutageTime'],
+                apiResponse['estimatedUsersImpacted']
+            )
+            return self_outage_data
+        
         except Exception as e:
             print("Exception:", repr(e))
