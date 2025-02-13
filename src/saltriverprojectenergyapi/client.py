@@ -15,7 +15,8 @@ from .const import (
     API_LOGIN_URI,
     API_XSRF_URI,
     API_HOURLY_USAGE_URI,
-    API_WEATHER_DATA_URI
+    API_WEATHER_DATA_URI,
+    API_USER_OUTAGE_URI
 )
 
 class SaltRiverProjectClient:
@@ -169,3 +170,16 @@ class SaltRiverProjectClient:
         except Exception as e:
             print("Exception:", repr(e))
             return False
+        
+    def getUserOutage(self):
+        try:
+            selfOutageData = self.apiSession.get(
+                BASE_API_URL
+                + API_USER_OUTAGE_URI.format(billingAccount=self.billingAccount),
+                headers = {"x-xsrf-token": self.xsrf_token} 
+            )
+
+            apiResponse = selfOutageData.json()
+            print(apiResponse)
+        except Exception as e:
+            print("Exception:", repr(e))
