@@ -1,2 +1,3 @@
 """Init file for Salt River Project unofficial API"""
-__version__ = '1.0.2'
+from .client import SaltRiverProjectClient
+__version__ = '1.0.3'
