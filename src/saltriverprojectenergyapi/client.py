@@ -7,8 +7,8 @@ Data API.
 import datetime
 import requests
 from urllib.parse import unquote
-from saltriverprojectclient.objects.hourly_usage import HourlyUsage
-from saltriverprojectclient.objects.weather_data import WeatherData
+from saltriverprojectenergyapi.objects.hourly_usage import HourlyUsage
+from saltriverprojectenergyapi.objects.weather_data import WeatherData
 from typing import List
 from .const import (
     BASE_API_URL,
