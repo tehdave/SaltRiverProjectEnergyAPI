@@ -1,14 +1,14 @@
 class SelfOutageData:
-    def __init__(self, date, high, low, average):
-        self.date = date
-        self.high = high
-        self.low = low
-        self.average = average
+    def __init__(self, isInOutageArea, estimatedRestorationTime, reportedOutageTime, estimatedUsersImpacted):
+        self.isInOutageArea = isInOutageArea
+        self.estimatedRestorationTime = estimatedRestorationTime
+        self.reportedOutageTime = reportedOutageTime
+        self.estimatedUsersImpacted = estimatedUsersImpacted
         
     def __repr__(self):
         return (
-            f"date={self.date},"
-            f"high={self.high},"
-            f"low={self.low},"
-            f"average={self.average}"
+            f"isInOutageArea={self.isInOutageArea},"
+            f"estimatedRestorationTime={self.estimatedRestorationTime},"
+            f"reportedOutageTime={self.reportedOutageTime},"
+            f"estimatedUsersImpacted={self.estimatedUsersImpacted}"
         )
