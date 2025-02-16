@@ -65,7 +65,6 @@ class SaltRiverProjectClient:
         self.billingAccount = billingAccount
         self.username = username
         self.password = password
-
         self.apiSession = requests.Session()
 
     def authoriseLogin(self):
@@ -104,6 +103,36 @@ class SaltRiverProjectClient:
             print("Exception:", repr(e))
             return False
                 
+    def isAuthorised(self) -> bool:
+        """
+        Checks if the client is authorised to make API requests.
+        Returns:
+            bool: True if the client is authorised, False otherwise.
+        """
+
+        # Check to see if we have an XSRF token
+        print("Checking if client is authorised.")
+        if hasattr(self, "xsrf_token"):
+            print("Client has a token.")
+            # We have a token. See if it's valid.  We will do this by making a simple API call
+            # and seeing if we get a 200 response.
+            authRequest = self.apiSession.get(
+                BASE_API_URL
+                + API_USER_OUTAGE_URI.format(billingAccount=self.billingAccount),
+                headers = {"x-xsrf-token": self.xsrf_token}
+            )
+            if authRequest.status_code == 200:
+                # We are authorised
+                return True
+            else:
+                print("Client is not authorised.")
+                # We are not authorised. Attempt to Authenticate and Authorise.
+                return self.authoriseLogin()
+        else:
+            print("Client does not have a token.")
+            # We don't have a token. Attempt to Authenticate and Authorise.
+            return self.authoriseLogin()
+
     def getHourlyUsage(self, startDate, endDate) -> List[HourlyUsage]:
         """
         Retrieves hourly energy usage data for a given date range.
@@ -120,6 +149,11 @@ class SaltRiverProjectClient:
         str_startdate = datetime.datetime.strptime(startDate, "%d-%m-%Y")
         str_enddate = datetime.datetime.strptime(endDate, "%d-%m-%Y")
 
+        # We can only make API requests if we are authorised
+        if self.isAuthorised() == False:
+            print("Client is not authorised.")
+            return False
+        
         response = self.apiSession.get(
             BASE_API_URL
             + API_HOURLY_USAGE_URI.format(billingAccount=self.billingAccount, startDate=str_startdate, endDate=str_enddate),
@@ -160,7 +194,11 @@ class SaltRiverProjectClient:
             Exception: If there is an error during the API request or data 
             parsing, an exception is caught and its representation is printed.
         """
-
+        # We can only make API requests if we are authorised
+        if self.isAuthorised() == False:
+            print("Client is not authorised.")
+            return False
+        
         try:
             weatherRequest = self.apiSession.get(
                 BASE_API_URL
@@ -194,6 +232,11 @@ class SaltRiverProjectClient:
         Raises:
             Exception: If there is an error during the API request or response parsing, an exception is caught and printed.
         """
+        # We can only make API requests if we are authorised
+        if self.isAuthorised() == False:
+            print("Client is not authorised.")
+            return False
+        
         try:
             selfOutageRequest = self.apiSession.get(
                 BASE_API_URL
