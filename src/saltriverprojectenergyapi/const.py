@@ -1,9 +1,20 @@
+"""Constants for the Salt River Project Energy API."""
+
+import logging
+
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 BASE_API_URL = "https://myaccount.srpnet.com/myaccountapi/api/"
 
 API_LOGIN_URI = "login/authorize"
 API_XSRF_URI = "login/antiforgerytoken"
 
 API_RATE_METADATA_URI   = "accounts/getratemetadata?billaccount={billingAccount}"
-API_HOURLY_USAGE_URI    = "usage/hourlydetail?billaccount={billingAccount}&beginDate={startDate}&endDate={endDate}"
+API_HOURLY_USAGE_URI    = (
+    "usage/hourlydetail?billaccount={billingAccount}&beginDate={startDate}&endDate={endDate}"
+)
 API_WEATHER_DATA_URI    = "usage/dailyweather"
 API_USER_OUTAGE_URI     = "outages/userinoutage?billaccount={billingAccount}"
+
+BILLING_ACCOUNT_LENGTH = 9

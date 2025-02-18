@@ -1,256 +1,315 @@
-"""Client Module
+"""Provides a client for interacting with the Salt River Project (SRP) API.
 
-This module contains the main class used to interact with the Salt River Project
-Data API.
+The SaltRiverProjectClient class allows users to authenticate with their SRP account
+and retrieve various data such as hourly energy usage, daily weather information, and
+user outage information.
+Classes:
+    SaltRiverProjectClient: A client for interacting with the SRP API.
+Exceptions:
+    ValueError: Raised when invalid arguments are provided to the SaltRiverProjectClient
+                constructor.
+Functions:
+    __init__(self, billing_account, username, password):
+    authorise_login(self):
+    is_authorised(self) -> bool:
+    get_hourly_usage(self, start_date, end_date) -> List[HourlyUsage]:
+    get_daily_weather(self) -> List[WeatherData]:
+    get_user_outage(self) -> SelfOutageData:
 """
 
 import datetime
-import requests
 from typing import List
 from urllib.parse import unquote
-from .objects import (
-    HourlyUsage,
-    WeatherData,
-    SelfOutageData,
-)
+
+import requests
+
+from . import logging
 from .const import (
-    BASE_API_URL,
-    API_LOGIN_URI,
-    API_XSRF_URI,
     API_HOURLY_USAGE_URI,
+    API_LOGIN_URI,
+    API_USER_OUTAGE_URI,
     API_WEATHER_DATA_URI,
-    API_USER_OUTAGE_URI
+    API_XSRF_URI,
+    BASE_API_URL,
+    BILLING_ACCOUNT_LENGTH,
+)
+from .exceptions import (
+    InvalidBillingAccountError,
+    InvalidPasswordError,
+    InvalidUsernameError,
+)
+from .objects import (
+    CostData,
+    EnergyUsageData,
+    HourlyUsage,
+    KwhData,
+    SelfOutageData,
+    WeatherData,
 )
 
+
 class SaltRiverProjectClient:
-    """SaltRiverProjectClient is a client for interacting with the Salt River Project (SRP) API.
-    This client allows users to authenticate with their SRP account and retrieve various data such as hourly energy usage and daily weather information.
+    """The SaltriverProjectClient class.
+
+    This client allows users to authenticate with their SRP account and retrieve various
+    data such as hourly energy usage and daily weather information.
+
     Attributes:
         billingAccount (str): The 9 digit SRP Billing Account.
         username (str): The username used to login. Usually your email address.
         password (str): The password used to login.
         apiSession (requests.Session): The session used for making API requests.
-        xsrf_token (str): The XSRF token retrieved after successful login and authorisation.
+        xsrf_token (str): The XSRF token retrieved after successful login
+            and authorisation.
+
     Methods:
         __init__(billingAccount, username, password):
-            Initializes the SaltRiverProjectClient with the provided credentials.
+            raise InvalidUsernameError()
         authoriseLogin():
-            Authorises the login credentials and retrieves the XSRF token.
+            raise InvalidPasswordError()
         getHourlyUsage(startDate, endDate) -> List[HourlyUsage]:
             Fetches hourly usage data for the specified date range.
         getDailyWeather() -> List[WeatherData]:
-            Fetches daily weather data.
+            raise InvalidBillingAccountError()
+
     """
 
-    def __init__(self, billingAccount, username, password):
-        """
-        Initializes the client with the given billing account, username, and password.
-        Args:
-            billingAccount (str): A 9 digit string representing the billing account.
-            username (str): A non-empty string representing the username.
-            password (str): A non-empty string representing the password.
-        Raises:
-            ValueError: If billingAccount is not a 9 digit string.
-            ValueError: If username is not a non-empty string.
-            ValueError: If password is not a non-empty string.
-        """
+    def __init__(self, billing_account, username, password):
+        """Initialize the client with billing account, username, and password.
 
-        if not isinstance(billingAccount, str) or len(billingAccount) != 9:
-            raise ValueError("billingAccount must be a 9 digit string.")
+        Args:
+            billing_account (str): The billing account number.
+            Must be a 9-character string.
+            username (str): The username for the account.
+            password (str): The password for the account.
+
+        Raises:
+            InvalidBillingAccountError: If the billing account is not a string
+            or not 9 characters long.
+            InvalidUsernameError: If the username is not a string or is empty.
+            InvalidPasswordError: If the password is not a string or is empty.
+
+        """
+        self.logger = logging.getLogger(__name__)
+
+        if not isinstance(billing_account, str) or not billing_account:
+            raise InvalidBillingAccountError
+        if len(billing_account) != BILLING_ACCOUNT_LENGTH:
+            raise InvalidBillingAccountError
         if not isinstance(username, str) or not username:
-            raise ValueError("username must be a non-empty string.")
+            raise InvalidUsernameError
         if not isinstance(password, str) or not password:
-            raise ValueError("password must be a non-empty string.")
-        
-        self.billingAccount = billingAccount
+            raise InvalidPasswordError
+
+        self.billing_account = billing_account
         self.username = username
         self.password = password
-        self.apiSession = requests.Session()
+        self.xsrf_token = None
+        self.api_session = requests.Session()
 
-    def authoriseLogin(self):
+    def authorise_login(self):
         """Authorises the login credentials and retrieves the XSRF token.
 
         Returns:
         bool: True if authorisation is successful, False otherwise.
-        """
 
+        """
+        self.logger.debug("Authorising login.")
         try:
-            authenticateRequest = self.apiSession.post(
-                BASE_API_URL
-                + API_LOGIN_URI,
-                data={"username": self.username, "password": self.password}
+            authenticate_request = self.api_session.post(
+                BASE_API_URL + API_LOGIN_URI,
+                data={"username": self.username, "password": self.password},
             )
-            responseData = authenticateRequest.json()
+            response_data = authenticate_request.json()
             # If the response contains a successful message:
-            isAuthenticated = responseData['message'] == "Log in successful."
-            print("Login was successful. Attempting to Authorise.")
-            if isAuthenticated:
-                authoriseRequest = self.apiSession.get(
-                    BASE_API_URL
-                    + API_XSRF_URI
-                )
-                responseData = authoriseRequest.json()
-                isAuthorised = responseData['message'] == "Success"
-                if isAuthorised:
-                    self.xsrf_token = unquote(responseData["xsrfToken"])
+            is_authenticated = response_data["message"] == "Log in successful."
+            if is_authenticated:
+                self.logger.debug("Login successful. Attempting to authorise.")
+                authorise_request = self.api_session.get(BASE_API_URL + API_XSRF_URI)
+                response_data = authorise_request.json()
+                is_authorised = response_data["message"] == "Success"
+                if is_authorised:
+                    self.logger.debug("Authorisation successful.")
+                    self.xsrf_token = unquote(response_data["xsrfToken"])
                     return True
-                # End if isAuthorised
-            # End if isAuthenticated
+                self.logger.debug("Authorisation failed.")
+                return False
+            self.logger.debug("Login failed.")
+            return False  # noqa: TRY300
+
+        except requests.RequestException:
+            self.logger.exception("Exception occurred")
             return False
 
-            
-        except Exception as e:
-            print("Exception:", repr(e))
-            return False
-                
-    def isAuthorised(self) -> bool:
-        """
-        Checks if the client is authorised to make API requests.
+    def is_authorised(self) -> bool:
+        """Check if the client is authorised to make API requests.
+
         Returns:
             bool: True if the client is authorised, False otherwise.
-        """
 
+        """
         # Check to see if we have an XSRF token
-        print("Checking if client is authorised.")
+        self.logger.debug("Checking if client is authorised.")
         if hasattr(self, "xsrf_token"):
-            print("Client has a token.")
-            # We have a token. See if it's valid.  We will do this by making a simple API call
+            self.logger.debug("Client has a token.")
+            # We have a token. See if it's valid.  We will do this by
+            # making a simple API call
             # and seeing if we get a 200 response.
-            authRequest = self.apiSession.get(
+            auth_request = self.api_session.get(
                 BASE_API_URL
-                + API_USER_OUTAGE_URI.format(billingAccount=self.billingAccount),
-                headers = {"x-xsrf-token": self.xsrf_token}
+                + API_USER_OUTAGE_URI.format(billingAccount=self.billing_account),
+                headers={"x-xsrf-token": self.xsrf_token},
             )
-            if authRequest.status_code == 200:
+            if auth_request.ok:
                 # We are authorised
                 return True
-            else:
-                print("Client is not authorised.")
-                # We are not authorised. Attempt to Authenticate and Authorise.
-                return self.authoriseLogin()
-        else:
-            print("Client does not have a token.")
-            # We don't have a token. Attempt to Authenticate and Authorise.
-            return self.authoriseLogin()
+            self.logger.debug("Client is not authorised.")
+            # We are not authorised. Attempt to Authenticate and Authorise.
+            return self.authorise_login()
+        self.logger.debug("Client does not have a token.")
+        # We don't have a token. Attempt to Authenticate and Authorise.
+        return self.authorise_login()
 
-    def getHourlyUsage(self, startDate, endDate) -> List[HourlyUsage]:
-        """
-        Retrieves hourly energy usage data for a given date range.
+    def get_hourly_usage(self, start_date, end_date) -> EnergyUsageData:
+        """Retrieve hourly energy usage data for a given date range.
+
         Args:
-            startDate (str): The start date in the format "dd-mm-yyyy".
-            endDate (str): The end date in the format "dd-mm-yyyy".
-        Returns:
-            List[HourlyUsage]: A list of HourlyUsage objects containing energy usage data for each hour within the specified date range.
-        Raises:
-            ValueError: If the date format is incorrect or if the API response is invalid.
-        """
+            start_date (str): The start date in the format "dd-mm-yyyy".
+            end_date (str): The end date in the format "dd-mm-yyyy".
 
+        Returns:
+            List[HourlyUsage]: A list of HourlyUsage objects containing energy usage
+            data for each hour within the specified date range.
+
+        Raises:
+            ValueError: If the date format is incorrect or if the API response is
+            invalid.
+
+        """
         # Convert datetime to strings
-        str_startdate = datetime.datetime.strptime(startDate, "%d-%m-%Y")
-        str_enddate = datetime.datetime.strptime(endDate, "%d-%m-%Y")
+        str_startdate = datetime.datetime.strptime(start_date, "%d-%m-%Y")
+        str_enddate = datetime.datetime.strptime(end_date, "%d-%m-%Y")
 
         # We can only make API requests if we are authorised
-        if self.isAuthorised() == False:
-            print("Client is not authorised.")
+        if not self.is_authorised():
+            self.logger.debug("Client is not authorised.")
             return False
-        
-        response = self.apiSession.get(
+
+        response = self.api_session.get(
             BASE_API_URL
-            + API_HOURLY_USAGE_URI.format(billingAccount=self.billingAccount, startDate=str_startdate, endDate=str_enddate),
-            headers = {"x-xsrf-token": self.xsrf_token}
+            + API_HOURLY_USAGE_URI.format(
+                billingAccount=self.billing_account,
+                startDate=str_startdate,
+                endDate=str_enddate,
+            ),
+            headers={"x-xsrf-token": self.xsrf_token},
         )
 
-        apiResponse = response.json()
-        energy_data_collection = []
-        for item in apiResponse['hourlyUsageList']:
-            energy_data = HourlyUsage(
-                item['date'],
-                item['hour'],
-                item['onPeakKwh'],
-                item['offPeakKwh'],
-                item['shoulderKwh'],
-                item['superOffPeakKwh'],
-                item['totalKwh'],
-                item['onPeakCost'],
-                item['offPeakCost'], 
-                item['shoulderCost'],
-                item['superOffPeakCost'],
-                item['totalCost']
-            )
-            energy_data_collection.append(energy_data)
-            
-        return energy_data_collection
+        api_response = response.json()
+        daily_energy_usage = EnergyUsageData(energy_usage=[])
 
-    def getDailyWeather(self) -> List[WeatherData]:
-        """
-        Fetches daily weather data from the API.
+        for item in api_response["hourlyUsageList"]:
+            kwh_data: KwhData = KwhData(
+                on_peak_kwh = item["onPeakKwh"],
+                off_peak_kwh = item["offPeakKwh"],
+                shoulder_kwh = item["shoulderKwh"],
+                super_off_peak_kwh = item["superOffPeakKwh"],
+                total_kwh = item["totalKwh"],
+            )
+
+            cost_data: CostData = CostData(
+                on_peak_cost=item["onPeakCost"],
+                off_peak_cost=item["offPeakCost"],
+                shoulder_cost=item["shoulderCost"],
+                super_off_peak_cost=item["superOffPeakCost"],
+                total_cost=item["totalCost"],
+            )
+
+            hourly_usage: HourlyUsage = HourlyUsage(
+                date=item["date"],
+                hour=item["hour"],
+                kwh_data=kwh_data,
+                cost_data=cost_data,
+            )
+
+            daily_energy_usage.energy_usage.append(hourly_usage)
+        return daily_energy_usage
+
+    def get_daily_weather(self) -> List[WeatherData]:
+        """Fetch daily weather data from the API.
+
         This method sends a GET request to the weather data endpoint of the API
-        and retrieves the daily weather data. The data is then parsed and 
+        and retrieves the daily weather data. The data is then parsed and
         converted into a list of WeatherData objects.
+
         Returns:
-            List[WeatherData]: A list of WeatherData objects containing the 
+            List[WeatherData]: A list of WeatherData objects containing the
             weather information for each day.
+
         Raises:
-            Exception: If there is an error during the API request or data 
+            Exception: If there is an error during the API request or data
             parsing, an exception is caught and its representation is printed.
+
         """
         # We can only make API requests if we are authorised
-        if self.isAuthorised() == False:
-            print("Client is not authorised.")
+        if not self.is_authorised():
+            self.logger.debug("Client is not authorised.")
             return False
-        
+
         try:
-            weatherRequest = self.apiSession.get(
-                BASE_API_URL
-                + API_WEATHER_DATA_URI,
-                headers = {"x-xsrf-token": self.xsrf_token}
+            weather_request = self.api_session.get(
+                BASE_API_URL + API_WEATHER_DATA_URI,
+                headers={"x-xsrf-token": self.xsrf_token},
             )
-            apiResponse = weatherRequest.json()
+            api_response = weather_request.json()
             weather_data_collection = []
-            for item in apiResponse:
+            for item in api_response:
                 weather_data = WeatherData(
-                    item['weatherDate'],
-                    item['high'],
-                    item['low'],
-                    item['average']
+                    item["weatherDate"], item["high"], item["low"], item["average"]
                 )
                 weather_data_collection.append(weather_data)
-            return weather_data_collection
-        
-        except Exception as e:
-            print("Exception:", repr(e))
+            return weather_data_collection  # noqa: TRY300
+
+        except requests.RequestException:
+            self.logger.exception("Exception occurred")
             return False
-        
-    def getUserOutage(self) -> SelfOutageData:
-        """
-        Fetches the user's outage information from the API.
-        This method sends a GET request to the API endpoint to retrieve the user's outage data.
-        It constructs the request URL using the base API URL and the user's billing account.
-        The response is expected to be in JSON format and contains information about the outage.
+
+    def get_user_outage(self) -> SelfOutageData:
+        """Fetch the user's outage information from the API.
+
+        This method sends a GET request to the API endpoint to retrieve the
+        user's outage data. It constructs the request URL using the base API
+        URL and the user's billing account. The response is expected to be in
+        JSON format and contains information about the outage.
+
         Returns:
-            SelfOutageData: An instance of SelfOutageData containing the outage information.
+            SelfOutageData: An instance of SelfOutageData containing the
+            outage information.
+
         Raises:
-            Exception: If there is an error during the API request or response parsing, an exception is caught and printed.
+            Exception: If there is an error during the API request or response
+            parsing, an exception is caught and printed.
+
         """
         # We can only make API requests if we are authorised
-        if self.isAuthorised() == False:
-            print("Client is not authorised.")
-            return False
-        
+        if not self.is_authorised():
+            self.logger.debug("Client is not authorised.")
+            return None
+
         try:
-            selfOutageRequest = self.apiSession.get(
+            self_outage_request = self.api_session.get(
                 BASE_API_URL
-                + API_USER_OUTAGE_URI.format(billingAccount=self.billingAccount),
-                headers = {"x-xsrf-token": self.xsrf_token} 
+                + API_USER_OUTAGE_URI.format(billingAccount=self.billing_account),
+                headers={"x-xsrf-token": self.xsrf_token},
             )
-            apiResponse = selfOutageRequest.json()
-            self_outage_data = SelfOutageData(
-                apiResponse['isInOutageArea'],
-                apiResponse['estimatedRestorationTime'],
-                apiResponse['reportedOutageTime'],
-                apiResponse['estimatedUsersImpacted']
+            api_response = self_outage_request.json()
+            return SelfOutageData(
+                api_response["isInOutageArea"],
+                api_response["estimatedRestorationTime"],
+                api_response["reportedOutageTime"],
+                api_response["estimatedUsersImpacted"],
             )
-            return self_outage_data
-        
-        except Exception as e:
-            print("Exception:", repr(e))
+
+        except requests.RequestException:
+            self.logger.exception("RequestException occurred")
+            return None
