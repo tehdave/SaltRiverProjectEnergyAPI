@@ -42,8 +42,10 @@ class HourlyUsage:
             str: A string representation of the HourlyUsage object.
 
         """
-        kwh_repr = asdict(self.kwh_data) if is_dataclass(self.kwh_data) else self.kwh_data
-        cost_repr = asdict(self.cost_data) if is_dataclass(self.cost_data) else self.cost_data
+        kwh_repr = asdict(self.kwh_data) if is_dataclass(self.kwh_data) else \
+            self.kwh_data
+        cost_repr = asdict(self.cost_data) if is_dataclass(self.cost_data) else \
+            self.cost_data
 
         return (
             f"HourlyUsage(date={self.date}, hour={self.hour}, "
