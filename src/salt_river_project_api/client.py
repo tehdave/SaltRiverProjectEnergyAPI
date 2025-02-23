@@ -27,6 +27,7 @@ from . import logging
 from .const import (
     API_HOURLY_USAGE_URI,
     API_LOGIN_URI,
+    API_RATE_METADATA_URI,
     API_USER_OUTAGE_URI,
     API_WEATHER_DATA_URI,
     API_XSRF_URI,
@@ -43,6 +44,7 @@ from .objects import (
     EnergyUsageData,
     HourlyUsage,
     KwhData,
+    RateMetaData,
     SelfOutageData,
     WeatherData,
 )
@@ -308,6 +310,37 @@ class SaltRiverProjectClient:
                 api_response["estimatedRestorationTime"],
                 api_response["reportedOutageTime"],
                 api_response["estimatedUsersImpacted"],
+            )
+
+        except requests.RequestException:
+            self.logger.exception("RequestException occurred")
+            return None
+
+    def get_rate_metadata(self) -> RateMetaData:
+        """Retrieve the rate metadata from the API.
+
+        Returns:
+            RateMetaData: The rate metadata if the client is authorised, otherwise None.
+
+        """
+        # We can only make API requests if we are authorised
+        if not self.is_authorised():
+            self.logger.debug("Client is not authorised.")
+            return None
+        try:
+            rate_metadata_request = self.api_session.get(
+                BASE_API_URL
+                + API_RATE_METADATA_URI.format(billingAccount=self.billing_account),
+                headers={"x-xsrf-token": self.xsrf_token},
+            )
+            api_response = rate_metadata_request.json()
+            return RateMetaData(
+                api_response["description"],
+                api_response["short_description"],
+                api_response["price_plan_url"],
+                api_response["is_demand"],
+                api_response["is_metered"],
+                api_response["is_solar"]
             )
 
         except requests.RequestException:

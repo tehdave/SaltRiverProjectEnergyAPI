@@ -5,6 +5,7 @@ from .data_classes import (
     EnergyUsageData,  # noqa: F401
     HourlyUsage,  # noqa: F401
     KwhData,  # noqa: F401
+    RateMetaData,  # noqa: F401
     SelfOutageData,  # noqa: F401
     WeatherData,  # noqa: F401
 )
