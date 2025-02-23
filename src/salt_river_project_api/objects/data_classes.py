@@ -75,3 +75,14 @@ class WeatherData:
     high: float
     low: float
     average: float
+
+@dataclass
+class RateMetaData:
+    """A class to represent SRP Account Rate data."""
+
+    description: str
+    short_description: str
+    price_plan_url: str
+    is_demand: bool
+    is_metered: bool
+    is_solar: bool
