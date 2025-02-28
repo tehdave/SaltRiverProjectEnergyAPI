@@ -227,9 +227,14 @@ class SaltRiverProjectClient:
                 total_cost=item["totalCost"],
             )
 
+            # Some smoke and mirrors here to turn the returned string into a datetime
+            # object and parse out the date and time into separate properties.
+            iso_date_from_data = datetime.datetime.fromisoformat(item["date"])
+            data_date = iso_date_from_data.date()
+            data_time = iso_date_from_data.time()
             hourly_usage: HourlyUsage = HourlyUsage(
-                date=item["date"],
-                hour=item["hour"],
+                date=data_date,
+                hour=data_time,
                 kwh_data=kwh_data,
                 cost_data=cost_data,
             )
